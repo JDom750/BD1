@@ -1,0 +1,79 @@
+# Función para definir la estructura de la lista de clientes
+def definir_estructura():
+    estructura = []
+    while True:
+        campo = input("Ingrese el nombre del campo (o 'fin' para terminar): ")
+        if campo.lower() == 'fin':
+            break
+        max_caracteres = int(input("Ingrese la cantidad máxima de caracteres para el campo: "))
+        estructura.append((campo, max_caracteres))
+    return estructura
+
+# Función para agregar un registro a la lista
+def agregar_registro(lista, estructura):
+    registro = {}
+    for campo, max_caracteres in estructura:
+        valor = input(f"Ingrese {campo} ({max_caracteres} caracteres como máximo): ")
+        if len(valor) > max_caracteres:
+            print(f"El valor de {campo} excede el límite de caracteres.")
+            return
+        registro[campo] = valor
+    lista.append(registro)
+    print("Registro agregado con éxito.")
+
+# Función para eliminar un registro por posición
+def eliminar_registro(lista, posicion):
+    if 0 <= posicion < len(lista):
+        del lista[posicion]
+        print("Registro eliminado con éxito.")
+    else:
+        print("La posición de registro no es válida.")
+
+# Función para actualizar un registro por posición
+def actualizar_registro(lista, posicion, estructura):
+    if 0 <= posicion < len(lista):
+        registro = lista[posicion]
+        for campo, max_caracteres in estructura:
+            valor = input(f"Ingrese nuevo valor para {campo} ({max_caracteres} caracteres como máximo): ")
+            if len(valor) > max_caracteres:
+                print(f"El valor de {campo} excede el límite de caracteres.")
+                return
+            registro[campo] = valor
+        print("Registro actualizado con éxito.")
+    else:
+        print("La posición de registro no es válida.")
+
+# Función principal del programa
+def main():
+    estructura = definir_estructura()
+    lista_clientes = []
+    
+    while True:
+        print("\nOpciones:")
+        print("1. Agregar registro")
+        print("2. Eliminar registro por posición")
+        print("3. Actualizar registro por posición")
+        print("4. Mostrar lista de clientes")
+        print("5. Salir")
+        
+        opcion = input("Seleccione una opción: ")
+        
+        if opcion == '1':
+            agregar_registro(lista_clientes, estructura)
+        elif opcion == '2':
+            posicion = int(input("Ingrese la posición del registro a eliminar: "))
+            eliminar_registro(lista_clientes, posicion)
+        elif opcion == '3':
+            posicion = int(input("Ingrese la posición del registro a actualizar: "))
+            actualizar_registro(lista_clientes, posicion, estructura)
+        elif opcion == '4':
+            print("Lista de clientes:")
+            for i, registro in enumerate(lista_clientes):
+                print(f"Registro {i}: {registro}")
+        elif opcion == '5':
+            break
+        else:
+            print("Opción no válida. Intente nuevamente.")
+
+if __name__ == "__main__":
+    main()
