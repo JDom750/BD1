@@ -5,9 +5,163 @@
 // Estructura para el metadato de un campo
 typedef struct {
     char nombre[50];
-    char tipo[20];
     int longitud;
 } MetadatoCampo;
+
+// Función para buscar un registro por campo
+void buscarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos, int posicion) {
+    FILE *archivo = fopen(nombreArchivo, "rb");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo de registros");
+        return;
+    }
+
+    // Calcular la posición física del registro
+    long posicionFisica = sizeof(MetadatoCampo) * numCampos * posicion;
+
+    // Mover el puntero del archivo a la posición deseada
+    fseek(archivo, posicionFisica, SEEK_SET);
+
+    char valor[100];
+    for (int i = 0; i < numCampos; i++) {
+        fread(valor, 1, metadatos[i].longitud, archivo);
+        valor[metadatos[i].longitud] = '\0'; // Asegurar que la cadena esté terminada correctamente
+        printf("%s: %s\n", metadatos[i].nombre, valor);
+    }
+
+    fclose(archivo);
+}
+
+void buscarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
+    int posicion;
+    printf("Ingrese la posición del registro a buscar: ");
+    scanf("%d", &posicion);
+
+    buscarRegistroPorPosicion(nombreArchivo, metadatos, numCampos, posicion);
+}
+
+
+// Función para modificar un registro por campo
+void modificarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos, int posicion) {
+    FILE *archivo = fopen(nombreArchivo, "rb+");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo de registros");
+        return;
+    }
+
+    char valor[100];
+    int contadorRegistros = 0;
+
+    while (1) {
+        long posicionFisica = sizeof(MetadatoCampo) * numCampos * contadorRegistros;
+        fseek(archivo, posicionFisica, SEEK_SET);
+
+        int leidos = 0;
+        for (int i = 0; i < numCampos; i++) {
+            leidos += fread(valor, 1, metadatos[i].longitud, archivo);
+            valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
+        }
+
+        if (leidos == 0) {
+            break;  // Fin del archivo
+        }
+
+        if (contadorRegistros == posicion) {
+            // Este es el registro a modificar
+            printf("Registro encontrado:\n");
+            for (int i = 0; i < numCampos; i++) {
+                printf("%s: %s\n", metadatos[i].nombre, valor);
+                printf("Ingrese el nuevo valor para %s: ", metadatos[i].nombre);
+                scanf("%s", valor);
+
+                if (strlen(valor) > metadatos[i].longitud) {
+                    printf("Error: El valor es demasiado largo para %s\n", metadatos[i].nombre);
+                    fclose(archivo);
+                    return;
+                }
+
+                fseek(archivo, posicionFisica + i * metadatos[i].longitud, SEEK_SET);
+                fwrite(valor, metadatos[i].longitud, 1, archivo);
+            }
+            fclose(archivo);
+            printf("Registro modificado con éxito.\n");
+            return;
+        }
+
+        contadorRegistros++;
+    }
+
+    fclose(archivo);
+    printf("Registro no encontrado.\n");
+}
+
+void modificarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
+    int posicion;
+    printf("Ingrese la posición del registro a modificar: ");
+    scanf("%d", &posicion);
+
+    modificarRegistroPorPosicion(nombreArchivo, metadatos, numCampos, posicion);
+}
+
+
+// Función para eliminar un registro por campo
+void eliminarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos, int posicion) {
+    FILE *archivo = fopen(nombreArchivo, "rb");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo de registros");
+        return;
+    }
+
+    FILE *tempArchivo = fopen("temp.bin", "wb");
+    if (tempArchivo == NULL) {
+        perror("Error al crear archivo temporal");
+        fclose(archivo);
+        return;
+    }
+
+    char valor[100];
+    int contadorRegistros = 0;
+
+    while (1) {
+        long posicionFisica = sizeof(MetadatoCampo) * numCampos * contadorRegistros;
+        fseek(archivo, posicionFisica, SEEK_SET);
+
+        int leidos = 0;
+        for (int i = 0; i < numCampos; i++) {
+            leidos += fread(valor, 1, metadatos[i].longitud, archivo);
+            valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
+        }
+
+        if (leidos == 0) {
+            break;  // Fin del archivo
+        }
+
+        if (contadorRegistros != posicion) {
+            // No es el registro a eliminar, copiarlo al archivo temporal
+            for (int i = 0; i < numCampos; i++) {
+                fwrite(valor, metadatos[i].longitud, 1, tempArchivo);
+            }
+        }
+
+        contadorRegistros++;
+    }
+
+    fclose(archivo);
+    fclose(tempArchivo);
+
+    // Reemplazar el archivo original con el archivo temporal
+    remove(nombreArchivo);
+    rename("temp.bin", nombreArchivo);
+}
+
+void eliminarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
+    int posicion;
+    printf("Ingrese la posición del registro a eliminar: ");
+    scanf("%d", &posicion);
+
+    eliminarRegistroPorPosicion(nombreArchivo, metadatos, numCampos, posicion);
+}
+
 
 // Función para agregar un registro en un archivo binario
 void agregarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
@@ -19,7 +173,7 @@ void agregarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int nu
 
     for (int i = 0; i < numCampos; i++) {
         char valor[100];
-        printf("Ingrese el valor para %s (%s): ", metadatos[i].nombre, metadatos[i].tipo);
+        printf("Ingrese el valor para %s: ", metadatos[i].nombre);
         scanf("%s", valor);
 
         if (strlen(valor) > metadatos[i].longitud) {
@@ -49,8 +203,6 @@ void crearMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *n
     for (int i = 0; i < *numCampos; i++) {
         printf("Ingrese el nombre del campo %d: ", i + 1);
         scanf("%s", (*metadatos)[i].nombre);
-        printf("Ingrese el tipo de dato para %s (Texto/Numero): ", (*metadatos)[i].nombre);
-        scanf("%s", (*metadatos)[i].tipo);
         printf("Ingrese la longitud máxima para %s: ", (*metadatos)[i].nombre);
         scanf("%d", &(*metadatos)[i].longitud);
     }
@@ -64,7 +216,7 @@ void crearMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *n
     fprintf(archivo, "%d\n", *numCampos);
 
     for (int i = 0; i < *numCampos; i++) {
-        fprintf(archivo, "%s %s %d\n", (*metadatos)[i].nombre, (*metadatos)[i].tipo, (*metadatos)[i].longitud);
+        fprintf(archivo, "%s %d\n", (*metadatos)[i].nombre, (*metadatos)[i].longitud);
     }
 
     fclose(archivo);
@@ -91,7 +243,7 @@ int cargarMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *n
     *metadatos = (MetadatoCampo *)malloc(sizeof(MetadatoCampo) * (*numCampos));
 
     for (int i = 0; i < *numCampos; i++) {
-        fscanf(archivo, "%s %s %d", (*metadatos)[i].nombre, (*metadatos)[i].tipo, &((*metadatos)[i].longitud));
+        fscanf(archivo, "%s %d", (*metadatos)[i].nombre, &((*metadatos)[i].longitud));
     }
 
     fclose(archivo);
@@ -152,179 +304,11 @@ int main() {
 }
 
 
-
 /* DE ACA EN ADELANTE CODIGO DE FACU, TODO LO ANTERIOR FUNCIONA Y ESTA COMPROBADO----------------
    DE ACA EN ADELANTE NO HAY NINGUNA VERIFICACION -----------------------------------------------
 ------------------------------------------------------
 ------------------------------------------------------ */
 
-// Función para buscar un registro por campo
-void buscarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
-    FILE *archivo = fopen(nombreArchivo, "rb");
-    if (archivo == NULL) {
-        perror("Error al abrir el archivo de registros");
-        return;
-    }
 
-    char valor[100];
-    char valorBuscado[100];
-    printf("Ingrese el valor a buscar: ");
-    scanf("%s", valorBuscado);
-
-    int encontrado = 0;
-    while (1) {
-        int leidos = 0;
-        for (int i = 0; i < numCampos; i++) {
-            leidos += fread(valor, 1, metadatos[i].longitud, archivo);
-            valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
-            if (strcmp(valor, valorBuscado) != 0) {
-                fseek(archivo, metadatos[i].longitud - leidos, SEEK_CUR);
-                break;  // No coincide, avanzar al siguiente registro
-            }
-        }
-
-        if (leidos == 0) {
-            break;  // Fin del archivo
-        }
-
-        if (leidos == numCampos) {
-            printf("Registro encontrado:\n");
-            for (int i = 0; i < numCampos; i++) {
-                printf("%s: %s\n", metadatos[i].nombre, valor);
-                leidos += fread(valor, 1, metadatos[i].longitud, archivo);
-            }
-            encontrado = 1;
-        }
-    }
-
-    if (!encontrado) {
-        printf("Registro no encontrado.\n");
-    }
-
-    fclose(archivo);
-}
-
-// Función para modificar un registro por campo
-void modificarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
-    FILE *archivo = fopen(nombreArchivo, "rb+");
-    if (archivo == NULL) {
-        perror("Error al abrir el archivo de registros");
-        return;
-    }
-
-    char valor[100];
-    char valorBuscado[100];
-    printf("Ingrese el valor a modificar: ");
-    scanf("%s", valorBuscado);
-
-    int modificado = 0;
-    while (1) {
-        long posicion = ftell(archivo);
-        int leidos = 0;
-        for (int i = 0; i < numCampos; i++) {
-            leidos += fread(valor, 1, metadatos[i].longitud, archivo);
-            valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
-            if (strcmp(valor, valorBuscado) != 0) {
-                fseek(archivo, metadatos[i].longitud - leidos, SEEK_CUR);
-                break;  // No coincide, avanzar al siguiente registro
-            }
-        }
-
-        if (leidos == 0) {
-            break;  // Fin del archivo
-        }
-
-        if (leidos == numCampos) {
-            printf("Registro encontrado:\n");
-            for (int i = 0; i < numCampos; i++) {
-                printf("%s: %s\n", metadatos[i].nombre, valor);
-            }
-
-            printf("Ingrese el nuevo valor para uno de los campos:\n");
-            for (int i = 0; i < numCampos; i++) {
-                printf("%s (%s): ", metadatos[i].nombre, metadatos[i].tipo);
-                scanf("%s", valor);
-
-                if (strlen(valor) > metadatos[i].longitud) {
-                    printf("Error: El valor es demasiado largo para %s\n", metadatos[i].nombre);
-                    fclose(archivo);
-                    return;
-                }
-
-                fseek(archivo, posicion + i * metadatos[i].longitud, SEEK_SET);
-                fwrite(valor, metadatos[i].longitud, 1, archivo);
-            }
-
-            modificado = 1;
-            break;
-        }
-    }
-
-    if (!modificado) {
-        printf("Registro no encontrado.\n");
-    } else {
-        printf("Registro modificado con éxito.\n");
-    }
-
-    fclose(archivo);
-}
-
-// Función para eliminar un registro por campo
-void eliminarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
-    FILE *archivo = fopen(nombreArchivo, "rb");
-    if (archivo == NULL) {
-        perror("Error al abrir el archivo de registros");
-        return;
-    }
-
-    FILE *tempArchivo = fopen("temp.bin", "wb");
-    if (tempArchivo == NULL) {
-        perror("Error al crear archivo temporal");
-        fclose(archivo);
-        return;
-    }
-
-    char valor[100];
-    char valorBuscado[100];
-    printf("Ingrese el valor a eliminar: ");
-    scanf("%s", valorBuscado);
-
-    int eliminado = 0;
-    while (1) {
-        int leidos = 0;
-        for (int i = 0; i < numCampos; i++) {
-            leidos += fread(valor, 1, metadatos[i].longitud, archivo);
-            valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
-            if (strcmp(valor, valorBuscado) != 0) {
-                fseek(archivo, metadatos[i].longitud - leidos, SEEK_CUR);
-                break;  // No coincide, avanzar al siguiente registro
-            }
-        }
-
-        if (leidos == 0) {
-            break;  // Fin del archivo
-        }
-
-        if (leidos == numCampos) {
-            printf("Registro encontrado y eliminado:\n");
-            eliminado = 1;
-        } else {
-            for (int i = 0; i < numCampos; i++) {
-                fwrite(valor, metadatos[i].longitud, 1, tempArchivo);
-            }
-        }
-    }
-
-    if (!eliminado) {
-        printf("Registro no encontrado.\n");
-    }
-
-    fclose(archivo);
-    fclose(tempArchivo);
-
-    // Reemplazar el archivo original con el archivo temporal
-    remove(nombreArchivo);
-    rename("temp.bin", nombreArchivo);
-}
 
 
