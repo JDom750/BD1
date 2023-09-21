@@ -11,42 +11,48 @@ typedef struct {
 
 // Función para buscar un registro por campo
 void buscarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo* metadatos, int numCampos, int posicionBuscada) {
+    // Validar si la posición buscada es menor a 0 o mayor que la cantidad de registros
+
+    posicionBuscada = posicionBuscada - 1;
+
+    if (posicionBuscada < 0) {
+        printf("Posicion de registro no valida. Debe ser mayor o igual a 0.\n");
+        return;
+    }
+
     FILE *archivo = fopen(nombreArchivo, "rb");
     if (archivo == NULL) {
         perror("Error al abrir el archivo de registros");
         return;
     }
 
-    fseek(archivo, 0, SEEK_END);  // Moverse al final del archivo para obtener la longitud total
-    long longitudArchivo = ftell(archivo); //ftell me devuelve el tamaño del archivo con los registros cargados
-    long longitudRegistro = 0;
-
-    if (longitudArchivo == 0) {
-        printf("El archivo de registros está vacío.\n");
-        fclose(archivo);
-        return;
-    }
-    printf("\nlongArchivo: %li\t tamRegistro: %d\n",longitudArchivo, tamRegistro);
-    if (longitudArchivo % (tamRegistro) != 0) {
-        printf("Error: Tamaño de registro no válido.\n");
-        fclose(archivo);
-        return;
+    // Calcular el tamaño de un registro completo
+    long tamRegistro = 0;
+    for (int i = 0; i < numCampos; i++) {
+        tamRegistro += metadatos[i].longitud;
     }
 
-    longitudRegistro = longitudArchivo / tamRegistro;
+    // Calcular la cantidad de registros en el archivo
+    fseek(archivo, 0, SEEK_END);
+    long longitudArchivo = ftell(archivo);
+    long cantidadRegistros = longitudArchivo / tamRegistro;
 
-    if (posicionBuscada < 0 || posicionBuscada >= longitudRegistro) {
-        printf("Posición de registro no válida.\n");
+    // Validar si la posición buscada es mayor que la cantidad de registros
+    if (posicionBuscada >= cantidadRegistros) {
+        printf("Posicion de registro no valida. No existe un registro en la posicion %d.\n", posicionBuscada);
         fclose(archivo);
         return;
     }
 
+    // Calcular la posición de inicio del registro deseado
+    long posicionInicio = tamRegistro * (long)posicionBuscada;
 
- //   fseek(archivo, posicionBuscada *numCampos * sizeof(MetadatoCampo), SEEK_SET);  // Moverse a la posición deseada
-    fseek(archivo, tamRegistro*(posicionBuscada-1), SEEK_SET);  // Moverse a la posición deseada
+    // Moverse a la posición deseada
+    fseek(archivo, posicionInicio, SEEK_SET);
+
+    // Mostrar la posición real del registro sumando 1
+    printf("Registro encontrado en la posicion %d:\n", posicionBuscada + 1);
     
-
-    printf("Registro encontrado en la posición %d:\n", posicionBuscada);
     for (int i = 0; i < numCampos; i++) {
         char valor[100];
         fread(valor, 1, metadatos[i].longitud, archivo);
@@ -56,8 +62,41 @@ void buscarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo* metadat
 
     fclose(archivo);
 }
+// Función para mostrar el contenido de un archivo binario
+// Función para mostrar el contenido de un archivo binario con todos los registros y su contenido
+void mostrarArchivo(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
+    FILE *archivo = fopen(nombreArchivo, "rb");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo");
+        return;
+    }
 
+    char valor[100];
+    int contadorRegistros = 0;
+    printf("Mostramos los registros del archivo: \n");
+    printf("---------------------------------------------------------------- \n");
+    while (1) {
+        int leidos = 0;
 
+        printf("Registro %d:\n", contadorRegistros + 1);
+
+        for (int i = 0; i < numCampos; i++) {
+            leidos = fread(valor, 1, metadatos[i].longitud, archivo);
+            if (leidos != metadatos[i].longitud) {
+                // Si no se leen la cantidad esperada de bytes, se asume que llegamos al final del archivo
+                fclose(archivo);
+                return;
+            }
+            valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
+            printf("%s: %s\n", metadatos[i].nombre, valor);
+        }
+        printf("\n");
+        contadorRegistros++;
+        printf("---------------------------------------------------------------- \n");
+    }
+
+    fclose(archivo);
+}
 /* void buscarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos, int posicion) {
     FILE *archivo = fopen(nombreArchivo, "rb");
     if (archivo == NULL) {
@@ -170,12 +209,19 @@ void eliminarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metad
         return;
     }
 
+    posicion = posicion - 1;  // Ajustar posición para comenzar desde 0
     char valor[100];
     int contadorRegistros = 0;
+    int eliminado = 0;
+
+    long tamRegistro = 0;
+    for (int i = 0; i < numCampos; i++) {
+        tamRegistro += metadatos[i].longitud;
+    }
 
     while (1) {
-        //long posicionFisica = sizeof(MetadatoCampo) * numCampos * contadorRegistros;
-        fseek(archivo, (posicion-1)*tamRegistro, SEEK_SET);
+        long posicionFisica = contadorRegistros * tamRegistro;
+        fseek(archivo, posicionFisica, SEEK_SET);
 
         int leidos = 0;
         for (int i = 0; i < numCampos; i++) {
@@ -187,10 +233,13 @@ void eliminarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metad
             break;  // Fin del archivo
         }
 
-        if (contadorRegistros != posicion) {
+        if (contadorRegistros == posicion) {
+            // Este es el registro a eliminar, no copiamos nada al archivo temporal
+            eliminado = 1;
+        } else {
             // No es el registro a eliminar, copiarlo al archivo temporal
             for (int i = 0; i < numCampos; i++) {
-                fwrite(valor, metadatos[i].longitud, 1, tempArchivo);
+                fwrite(valor + (i * metadatos[i].longitud), 1, metadatos[i].longitud, tempArchivo);
             }
         }
 
@@ -200,9 +249,16 @@ void eliminarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metad
     fclose(archivo);
     fclose(tempArchivo);
 
-    // Reemplazar el archivo original con el archivo temporal
-    remove(nombreArchivo);
-    rename("temp.bin", nombreArchivo);
+    // Verificar si se eliminó el registro
+    if (eliminado) {
+        // Reemplazar el archivo original con el archivo temporal
+        remove(nombreArchivo);
+        rename("temp.bin", nombreArchivo);
+        printf("Registro en la posición %d eliminado con éxito.\n", posicion + 1);  // Mostrar posición real
+    } else {
+        printf("Registro en la posición %d no encontrado o no pudo ser eliminado.\n", posicion + 1);  // Mostrar posición real
+        remove("temp.bin"); // Eliminar el archivo temporal sin cambios
+    }
 }
 
 void eliminarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
@@ -234,18 +290,15 @@ void agregarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int nu
         }
 
         fwrite(valor, metadatos[i].longitud, 1, archivo);
-        fflush(archivo);  // Forzar escritura inmediata de datos al archivo
     }
 
     fclose(archivo);
     printf("Registro agregado con éxito.\n");
 }
- 
-
 
 // Función para crear un archivo de metadatos con el formato de registro
 void crearMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *numCampos) {
-    printf("Ingrese el número de campos en el formato de registro: ");
+    printf("Ingrese el numero de campos en el formato de registro: ");
     scanf("%d", numCampos);
 
     *metadatos = (MetadatoCampo *)malloc(sizeof(MetadatoCampo) * (*numCampos));
@@ -275,7 +328,7 @@ void crearMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *n
     }
 
     fclose(archivo);
-    printf("Metadatos guardados con éxito en %s.\n", nombreArchivo);
+    printf("Metadatos guardados con exito en %s.\n", nombreArchivo);
 
     //Puesto por Facu para poder resetear el archivo de registros cuando se recrea la metadata
     //Sino quedaria inconsistente el programa dejando registros viejos con formatos diferentes
@@ -333,7 +386,7 @@ int main() {
     MetadatoCampo *metadatos;
     int numCampos;
 
-    printf("¿Desea cargar un nuevo formato de registro? (1: Sí / 0: No): ");
+    printf(" Desea cargar un nuevo formato de registro? (1: Si / 0: No): ");
     int cargarNuevoFormato;
     scanf("%d", &cargarNuevoFormato);
 
@@ -344,15 +397,16 @@ int main() {
             return 1;
         }
     }
-    printf("\ntamaño registro:%d\n",tamRegistro);
+    printf("\n tamanio registro:%d\n",tamRegistro);
 
     while (1) {
-        printf("\nElija una opción:\n");
+        printf("\n Elija una opcion:\n");
         printf("1. Agregar registro\n");
         printf("2. Buscar registro\n");
         printf("3. Modificar registro\n");
         printf("4. Eliminar registro\n");
-        printf("5. Salir\n");
+        printf("5. Mostrar registro\n");
+        printf("6. Salir\n");
         int opcion;
         scanf("%d", &opcion);
 
@@ -370,10 +424,13 @@ int main() {
                 eliminarRegistro(nombreRegistros, metadatos, numCampos);
                 break;
             case 5:
+                mostrarArchivo(nombreRegistros, metadatos, numCampos);
+                break;
+            case 6:
                 free(metadatos);
                 return 0;
             default:
-                printf("Opción no válida.\n");
+                printf("Opcion no valida.\n");
         }
     }
 
