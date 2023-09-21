@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+int tamRegistro;
 
 // Estructura para el metadato de un campo
 typedef struct {
@@ -9,7 +10,55 @@ typedef struct {
 } MetadatoCampo;
 
 // Función para buscar un registro por campo
-void buscarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos, int posicion) {
+void buscarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo* metadatos, int numCampos, int posicionBuscada) {
+    FILE *archivo = fopen(nombreArchivo, "rb");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo de registros");
+        return;
+    }
+
+    fseek(archivo, 0, SEEK_END);  // Moverse al final del archivo para obtener la longitud total
+    long longitudArchivo = ftell(archivo); //ftell me devuelve el tamaño del archivo con los registros cargados
+    long longitudRegistro = 0;
+
+    if (longitudArchivo == 0) {
+        printf("El archivo de registros está vacío.\n");
+        fclose(archivo);
+        return;
+    }
+    printf("\nlongArchivo: %li\t tamRegistro: %d\n",longitudArchivo, tamRegistro);
+    if (longitudArchivo % (tamRegistro) != 0) {
+        printf("Error: Tamaño de registro no válido.\n");
+        fclose(archivo);
+        return;
+    }
+
+    longitudRegistro = longitudArchivo / tamRegistro;
+
+    if (posicionBuscada < 0 || posicionBuscada >= longitudRegistro) {
+        printf("Posición de registro no válida.\n");
+        fclose(archivo);
+        return;
+    }
+
+
+ //   fseek(archivo, posicionBuscada *numCampos * sizeof(MetadatoCampo), SEEK_SET);  // Moverse a la posición deseada
+    fseek(archivo, tamRegistro*(posicionBuscada-1), SEEK_SET);  // Moverse a la posición deseada
+    
+
+    printf("Registro encontrado en la posición %d:\n", posicionBuscada);
+    for (int i = 0; i < numCampos; i++) {
+        char valor[100];
+        fread(valor, 1, metadatos[i].longitud, archivo);
+        valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
+        printf("%s: %s\n", metadatos[i].nombre, valor);
+    }
+
+    fclose(archivo);
+}
+
+
+/* void buscarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos, int posicion) {
     FILE *archivo = fopen(nombreArchivo, "rb");
     if (archivo == NULL) {
         perror("Error al abrir el archivo de registros");
@@ -30,12 +79,14 @@ void buscarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metadat
     }
 
     fclose(archivo);
-}
+} */
+
 
 void buscarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
     int posicion;
     printf("Ingrese la posición del registro a buscar: ");
     scanf("%d", &posicion);
+
 
     buscarRegistroPorPosicion(nombreArchivo, metadatos, numCampos, posicion);
 }
@@ -205,6 +256,7 @@ void crearMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *n
         scanf("%s", (*metadatos)[i].nombre);
         printf("Ingrese la longitud máxima para %s: ", (*metadatos)[i].nombre);
         scanf("%d", &(*metadatos)[i].longitud);
+        tamRegistro+=((*metadatos[i]).longitud);
     }
 
     FILE *archivo = fopen(nombreArchivo, "w");
@@ -232,6 +284,24 @@ void crearMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *n
 }
 
 // Función para cargar los metadatos desde un archivo de texto
+/* int cargarMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *numCampos) {
+    FILE *archivo = fopen(nombreArchivo, "r");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo de metadatos");
+        return 0;
+    }
+
+    fscanf(archivo, "%d", numCampos);
+    *metadatos = (MetadatoCampo *)malloc(sizeof(MetadatoCampo) * (*numCampos));
+
+    for (int i = 0; i < *numCampos; i++) {
+        fscanf(archivo, "%s %d", (*metadatos)[i].nombre, &((*metadatos)[i].longitud));
+        tamRegistro+=((*metadatos[i]).longitud);
+    }
+
+    fclose(archivo);
+    return 1;
+} */
 int cargarMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *numCampos) {
     FILE *archivo = fopen(nombreArchivo, "r");
     if (archivo == NULL) {
@@ -244,11 +314,14 @@ int cargarMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *n
 
     for (int i = 0; i < *numCampos; i++) {
         fscanf(archivo, "%s %d", (*metadatos)[i].nombre, &((*metadatos)[i].longitud));
+        // Utiliza la notación de flecha para acceder a la longitud
+        tamRegistro += (*metadatos)[i].longitud;
     }
 
     fclose(archivo);
     return 1;
 }
+
 
 // Función principal
 int main() {
@@ -268,6 +341,7 @@ int main() {
             return 1;
         }
     }
+    printf("\ntamaño registro:%d\n",tamRegistro);
 
     while (1) {
         printf("\nElija una opción:\n");
