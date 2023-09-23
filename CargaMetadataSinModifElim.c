@@ -139,20 +139,14 @@ void modificarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *meta
         return;
     }
 
-    char valor[100];
+    posicion = posicion - 1;  // Ajustar posición para comenzar desde 0
+    char *registro = (char *)malloc(tamRegistro);  // Espacio para un registro completo
     int contadorRegistros = 0;
 
     while (1) {
-        long posicionFisica = sizeof(MetadatoCampo) * numCampos * contadorRegistros;
-        fseek(archivo, posicionFisica, SEEK_SET);
+        int leidos = fread(registro, 1, tamRegistro, archivo);
 
-        int leidos = 0;
-        for (int i = 0; i < numCampos; i++) {
-            leidos += fread(valor, 1, metadatos[i].longitud, archivo);
-            valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
-        }
-
-        if (leidos == 0) {
+        if (leidos != tamRegistro) {
             break;  // Fin del archivo
         }
 
@@ -160,19 +154,28 @@ void modificarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *meta
             // Este es el registro a modificar
             printf("Registro encontrado:\n");
             for (int i = 0; i < numCampos; i++) {
-                printf("%s: %s\n", metadatos[i].nombre, valor);
+                char nuevoValor[100];
+                printf("%s: %s\n", metadatos[i].nombre, registro + ((i - 1) * metadatos[i - 1].longitud + metadatos[i - 1].longitud));
                 printf("Ingrese el nuevo valor para %s: ", metadatos[i].nombre);
-                scanf("%s", valor);
+                scanf("%s", nuevoValor);
 
-                if (strlen(valor) > metadatos[i].longitud) {
+                if (strlen(nuevoValor) > metadatos[i].longitud) {
                     printf("Error: El valor es demasiado largo para %s\n", metadatos[i].nombre);
+                    free(registro);
                     fclose(archivo);
                     return;
                 }
 
-                fseek(archivo, posicionFisica + i * metadatos[i].longitud, SEEK_SET);
-                fwrite(valor, metadatos[i].longitud, 1, archivo);
+                // Copiar el nuevo valor al campo correspondiente dentro del registro
+                strncpy(registro + ((i - 1) * metadatos[i - 1].longitud + metadatos[i - 1].longitud), nuevoValor, metadatos[i].longitud);
             }
+
+            // Posicionarse en el inicio del registro y escribir el registro modificado
+            fseek(archivo, posicion * tamRegistro, SEEK_SET);
+            fwrite(registro, 1, tamRegistro, archivo);
+
+            fflush(archivo); // Forzar la escritura inmediata al archivo
+            free(registro);
             fclose(archivo);
             printf("Registro modificado con éxito.\n");
             return;
@@ -181,9 +184,14 @@ void modificarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *meta
         contadorRegistros++;
     }
 
+    free(registro);
     fclose(archivo);
     printf("Registro no encontrado.\n");
 }
+
+
+
+
 
 void modificarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
     int posicion;
