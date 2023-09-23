@@ -155,7 +155,13 @@ void modificarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *meta
             printf("Registro encontrado:\n");
             for (int i = 0; i < numCampos; i++) {
                 char nuevoValor[100];
-                printf("%s: %s\n", metadatos[i].nombre, registro + ((i - 1) * metadatos[i - 1].longitud + metadatos[i - 1].longitud));
+                if (i == 0) {
+                    // Caso especial cuando i es 0, acceder al inicio del registro
+                    printf("%s: %s\n", metadatos[i].nombre, registro);
+                } else {
+                    // Acceder al campo dentro del registro usando la fórmula corregida
+                    printf("%s: %s\n", metadatos[i].nombre, registro + ((i - 1) * metadatos[i - 1].longitud + metadatos[i - 1].longitud));
+                }
                 printf("Ingrese el nuevo valor para %s: ", metadatos[i].nombre);
                 scanf("%s", nuevoValor);
 
@@ -188,9 +194,6 @@ void modificarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *meta
     fclose(archivo);
     printf("Registro no encontrado.\n");
 }
-
-
-
 
 
 void modificarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
@@ -306,6 +309,8 @@ void crearMetadatos(const char *nombreArchivo, MetadatoCampo **metadatos, int *n
         scanf("%s", (*metadatos)[i].nombre);
         printf("Ingrese la longitud máxima para %s: ", (*metadatos)[i].nombre);
         scanf("%d", &(*metadatos)[i].longitud);
+        //PRUEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        (*metadatos)[i].longitud ++;
         tamRegistro += (*metadatos)[i].longitud;
     }
 
