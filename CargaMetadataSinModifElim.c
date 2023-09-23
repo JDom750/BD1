@@ -196,61 +196,56 @@ void modificarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int 
 
 // Función para eliminar un registro por campo
 void eliminarRegistroPorPosicion(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos, int posicion) {
-    FILE *archivo = fopen(nombreArchivo, "rb+");
+    FILE *archivo = fopen(nombreArchivo, "rb");
     if (archivo == NULL) {
         perror("Error al abrir el archivo de registros");
         return;
     }
 
+    FILE *tempArchivo = fopen("temp.bin", "wb");
+    if (tempArchivo == NULL) {
+        perror("Error al crear archivo temporal");
+        fclose(archivo);
+        return;
+    }
+
     posicion = posicion - 1;  // Ajustar posición para comenzar desde 0
-    char valor[100];
+    char *registro = (char *)malloc(tamRegistro);  // Espacio para un registro completo
     int contadorRegistros = 0;
     int eliminado = 0;
 
-    long tamRegistro = 0;
-    for (int i = 0; i < numCampos; i++) {
-        tamRegistro += metadatos[i].longitud;
-    }
-
     while (1) {
-        long posicionFisica = contadorRegistros * tamRegistro;
-        fseek(archivo, posicionFisica, SEEK_SET);
+        int leidos = fread(registro, 1, tamRegistro, archivo);
 
-        int leidos = 0;
-        for (int i = 0; i < numCampos; i++) {
-            leidos += fread(valor, 1, metadatos[i].longitud, archivo);
-            valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
-        }
-
-        if (leidos == 0) {
+        if (leidos != tamRegistro) {
             break;  // Fin del archivo
         }
 
-        if (contadorRegistros == posicion) {
-            // Este es el registro a eliminar, sobrescribirlo con bytes nulos
-            fseek(archivo, posicionFisica, SEEK_SET);
-            for (int i = 0; i < tamRegistro; i++) {
-                fputc(0, archivo);
-            }
+        if (contadorRegistros != posicion) {
+            // No es el registro a eliminar, copiarlo al archivo temporal
+            fwrite(registro, 1, tamRegistro, tempArchivo);
+        } else {
             eliminado = 1;
-            break;
         }
 
         contadorRegistros++;
     }
 
     fclose(archivo);
+    fclose(tempArchivo);
+    free(registro);
 
     // Verificar si se eliminó el registro
     if (eliminado) {
+        // Reemplazar el archivo original con el archivo temporal
+        remove(nombreArchivo);
+        rename("temp.bin", nombreArchivo);
         printf("Registro en la posición %d eliminado con éxito.\n", posicion + 1);  // Mostrar posición real
     } else {
         printf("Registro en la posición %d no encontrado o no pudo ser eliminado.\n", posicion + 1);  // Mostrar posición real
+        remove("temp.bin"); // Eliminar el archivo temporal sin cambios
     }
 }
-
-
-
 
 void eliminarRegistro(const char *nombreArchivo, MetadatoCampo *metadatos, int numCampos) {
     int posicion;
