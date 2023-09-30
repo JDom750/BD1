@@ -389,3 +389,41 @@ int main() {
 
 
 
+void mostrarArchivo(const char nombreArchivo, MetadatoCampometadatos, int numCampos) {
+    FILE *archivo = fopen(nombreArchivo, "rb");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo");
+        return;
+    }
+
+    char valor[100];
+    int contadorRegistros = 0;
+    printf("Mostramos los registros del archivo: \n");
+    printf("---------------------------------------------------------------- \n");
+    while (1) {
+        int leidos = 0;
+        int j= 0;
+        if (!feof(nombreArchivo)) {
+        // Si no se leen la cantidad esperada de bytes, se asume que llegamos al final del archivo
+        printf("Registro %d:\n", contadorRegistros + 1);
+        fclose(archivo);
+        return;
+        }
+        for (int i=0; i < numCampos; i++) {
+            leidos = fread(valor, 1, metadatos[i].longitud, archivo);
+            if (leidos != metadatos[i].longitud) {
+                // Si no se leen la cantidad esperada de bytes, se asume que llegamos al final del archivo
+                fclose(archivo);
+                return;
+            }
+            valor[metadatos[i].longitud] = '\0';  // Asegurar que la cadena esté terminada correctamente
+
+            printf("%s: %s\n", metadatos[i].nombre, valor);
+        }
+        printf("\n");
+        contadorRegistros++;
+        printf("---------------------------------------------------------------- \n");
+    }
+
+    fclose(archivo);
+}
